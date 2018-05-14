@@ -7,6 +7,10 @@ test:
 	gcc -m32 b.c -o b.bin
 	./b.bin hello.c
 
+wc:
+	gcc wc.c -o wc.bin
+	./wc.bin
+
 clean:
-	@rm -rf ./c4.bin ./b.bin
+	@rm -rf ./*.bin *.out
 
