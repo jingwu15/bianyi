@@ -159,6 +159,7 @@ int main(int argc, char **argv) {
             if(tk == '(') {
                 i = 0;
                 while(tk != ')') {
+                    //解析参数变量
                     //解析数据类型
                     if(tk == TK_Char) next();
                     //如果数据类型后面不是变量名，则错误
@@ -169,12 +170,32 @@ int main(int argc, char **argv) {
                     id[ID_Class] = TK_Loc;
                     id[ID_Type] = TY_CHAR;
                     id[ID_Val] = i++;         //参数的序号
+                    next();
                     if(tk == ',') next();
                 }
                 //---------- 函数参数解析完成----------------
 
                 next();
+                if(tk != '{') { printf("%d: 错误的函数定义\n", line); return -1; }
+                loc = ++i;
+                while(tk == TY_CHAR) {
+                    //解析变量
+                    base_type = TY_CHAR;
+                    next();
+                    while(tk != ';') {
+                        //根据类型，判断是否定义过
+                        if(id[ID_Class] == TK_Loc) { printf("局部变量已经定义"); return -1; }
+                        id[ID_Class] = TK_Loc;
+                        id[ID_Type] = TY_CHAR;
+                        id[ID_Val] = i++;
+                        next();
+                        if(tk == ',') next();
+                    }
+                    next();
+                }
                 //解析函数体
+                *++e = ENT; *++e = i - loc;
+                while (tk != '}') stmt();
                 if(tk == '{') {
                     if(tk != '}') next();   continue;
                     stmt();
