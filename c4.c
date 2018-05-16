@@ -1,7 +1,7 @@
 // c4.c - 4个函数实现C编辑器 
-// char, int, and pointer types 
-// if, while, return, and expression statements 
-// just enough features to allow self-compilation and a bit more 
+// char/int/指针
+// if/while/return/表达式
+// 仅实现了满足自编译的功能
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,7 +12,7 @@
 char *p, *lp, // 源码的当前位置
      *data;   // data/bss 段指针
 
-int *e, *le,  // emitted code 的当前位置
+int *e, *le,  // 汇编中的文本段代码      .text      主要是函数
     *id,      // 当前解析的id    id是变量或函数属性
     *sym,     // 符号表(简单的id列表)
     tk,       // 当前标识符
@@ -59,7 +59,7 @@ enum { CHAR, INT, PTR };
 enum { Tk,   Hash, Name, Class, Type, Val,  HClass, HType, HVal, Idsz };
        token hash  name  class  type  value Bclass  Btype  Bvalue
 
-
+// 调试用的函数，用于将类型转换为字符串输出
 char * tyToStr(int type) {
     if(type == CHAR) return "char";
     if(type ==  INT) return "int";
@@ -67,6 +67,7 @@ char * tyToStr(int type) {
     return "";
 }
 
+// 调试用的函数，用于将标识符转换为字符串输出
 char * tkToStr(int tk) {
     if(tk ==    Num) return "num";
     if(tk ==    Fun) return "fun";
@@ -105,8 +106,6 @@ char * tkToStr(int tk) {
     if(tk ==   Brak) return "brak";
     return "";
 }
-
-char cs[4];
 
 // 解析标识符
 // 识别出变量名/函数名, 作为id，供后面使用，并 计算 hash 值 
@@ -398,7 +397,7 @@ void stmt() {
     }
 }
 
-int mai(int argc, char **argv) {
+int main(int argc, char **argv) {
     int fd, bt, ty, poolsz, *idmain;
     int *pc, *sp, *bp, a, cycle; // 虚拟机寄存器
     int i, *t; // 临时变量
@@ -473,7 +472,7 @@ int mai(int argc, char **argv) {
             id[Type] = ty;
             if (tk == '(') { // 函数
                 id[Class] = Fun;
-                id[Val] = (int)(e + 1);        //定义函数的入口地址
+                id[Val] = (int)(e + 1);        //定义函数的入口地址，这里也是e段的起始地址，main函数的入口地址
                 next(); i = 0;
                 //函数参数
                 while (tk != ')') {
@@ -495,6 +494,7 @@ int mai(int argc, char **argv) {
                 if (tk != '{') { printf("%d: bad function definition\n", line); return -1; }
                 loc = ++i;
                 next();
+                //函数体内首先定义的中变量，先解析这一部分变量
                 while (tk == Int || tk == Char) {
                     bt = (tk == Int) ? INT : CHAR;
                     next();
@@ -512,9 +512,9 @@ int mai(int argc, char **argv) {
                     }
                     next();
                 }
-                *++e = ENT; *++e = i - loc;
-                while (tk != '}') stmt();
-                *++e = LEV;
+                *++e = ENT; *++e = i - loc;         // 设置进入函数指令，i-loc为函数范围，可以理解为多小个CPU指令
+                while (tk != '}') stmt();           // 真正的函数体: if/else/while/return/{/}/;/表达式
+                *++e = LEV;                         // 离开函数
                 id = sym;
                 // 取消局部变量声明, 函数处理完毕，将全局变量恢复
                 while (id[Tk]) {
