@@ -41,7 +41,7 @@ enum {
 // LEA[去局部变量地址,以pc+1地址,以bp为基址,**地址**载入累加器a]                       IMM[pc+1作为为立即数载入累加器a] 
 // JMP[无条件跳转到pc+1] JSR[进入子程序,将pc+2入栈作为返回地址,跳转到pc+1]             BZ[累加器为零时分支,当累加器a为0时跳转到[PC+1],不为零时跳转到PC+2继续执行]  
 // BNZ[累加器不为零时分支,当累加器a不为0时跳转到[PC+1],为零时跳转到pc+2]               ENT[进入子程序,将bp压栈,基址bp指向栈顶,然后将栈顶生长pc+1字,作为参数传递空间] 
-// ADJ[栈调整/未知]                                                                    LEV[离开子程序,堆栈指针sp = bp,从堆栈中弹出基址bp,pc] 
+// ADJ[用于子函数的堆栈，ADJ后跟的参数是指令的长度，也是堆栈的长度]                    LEV[离开子程序,堆栈指针sp = bp,从堆栈中弹出基址bp,pc] 
 // LI[以a为地址取int数]                                                                LC[以a为地址取char] 
 // SI[以栈顶为地址存int数并弹栈sp++=a]                                                 SC[以栈顶为地址存char并弹栈sp++=a] 
 // PSH[将a压栈]
@@ -54,10 +54,9 @@ enum { LEA ,IMM ,JMP ,JSR ,BZ  ,BNZ ,ENT ,ADJ ,LEV ,LI  ,LC  ,SI  ,SC  ,PSH ,
 // 类型
 enum { CHAR, INT, PTR };
 
-// id的结构，以数组实现
+// id的结构，enum 类型，模拟数组
 // Tk[标识符] Hash[哈唏值] Name[名称/前四个字符] Class[标识符类型] Type[数据类型] Val[标识符值] HClass[同Class] HType[用Type] HVal[用Val] Idsz[Id的长度]
-enum { Tk,   Hash, Name, Class, Type, Val,  HClass, HType, HVal, Idsz };
-       token hash  name  class  type  value Bclass  Btype  Bvalue
+enum { Tk, Hash, Name, Class, Type, Val, HClass, HType, HVal, Idsz };
 
 // 调试用的函数，用于将类型转换为字符串输出
 char * tyToStr(int type) {
@@ -74,7 +73,7 @@ char * tkToStr(int tk) {
     if(tk ==    Sys) return "sys";
     if(tk ==    Glo) return "glo";
     if(tk ==    Loc) return "loc";
-    if(tk ==    Id ) return "id";
+    if(tk ==     Id) return "id";
     if(tk ==   Char) return "char";
     if(tk ==   Else) return "else";
     if(tk ==   Enum) return "enum";
@@ -115,16 +114,16 @@ char * tkToStr(int tk) {
 void next() {
     char *pp;
 
-    while (tk = *p) {
+    while(tk = *p) {
         ++p;
-        if (tk == '\n') {
-            if (src) {
+        if(tk == '\n') {
+            if(src) {
                 printf("%d: %.*s", line, p - lp, lp);
                 lp = p;
                 while (le < e) {
                     printf("%8.4s", &"LEA ,IMM ,JMP ,JSR ,BZ  ,BNZ ,ENT ,ADJ ,LEV ,LI  ,LC  ,SI  ,SC  ,PSH ,"
                                      "OR  ,XOR ,AND ,EQ  ,NE  ,LT  ,GT  ,LE  ,GE  ,SHL ,SHR ,ADD ,SUB ,MUL ,DIV ,MOD ,"
-                                     "OPEN,READ,CLOS,PRTF,MALC,FREE,MSET,MCMP,EXIT,"[*++le * 5]);
+                                     "OPEN,READ,CLOS,RTF,MALC,FREE,MSET,MCMP,EXIT,"[*++le * 5]);
                     if (*le <= ADJ) printf(" %d\n", *++le); else printf("\n");
                 }
             }
@@ -218,24 +217,27 @@ void expr(int lev) {
         ty = INT;
     }
     else if (tk == Id) {
+        //sizeof(int);
+        //printf("%d\n", 4);
+        //int big = 10;
         d = id; next();
-        if (tk == '(') {
+        if (tk == '(') {                                                                 //解析函数调用
             next();
             t = 0;
-            while (tk != ')') { expr(Assign); *++e = PSH; ++t; if (tk == ',') next(); }
+            while(tk != ')') { expr(Assign); *++e = PSH; ++t; if(tk == ',') next(); }    //将函数参数压栈
             next();
-            if (d[Class] == Sys) *++e = d[Val];
-            else if (d[Class] == Fun) { *++e = JSR; *++e = d[Val]; }
-            else { printf("%d: bad function call\n", line); exit(-1); }
-            if (t) { *++e = ADJ; *++e = t; }
-            ty = d[Type];
+            if (d[Class] == Sys) *++e = d[Val];                                          //系统函数，d[Val] 的值就是函数对应的汇编码 即系统函数在enum结构体中整数值
+            else if (d[Class] == Fun) { *++e = JSR; *++e = d[Val]; }                     //自定义函数，d[Val] 的值就是函数对应的汇编码 即
+            else { printf("%d: bad function call\n", line); exit(-1); }                  //非函数调用
+            if (t) { *++e = ADJ; *++e = t; }                                             //在 text段 中设置ADJ指令，用于子函数的堆栈，ADJ后跟的参数是指令的长度，也是堆栈的长度
+            ty = d[Type];                                                                //将id的数据类型赋值给ty
         }
         else if (d[Class] == Num) { *++e = IMM; *++e = d[Val]; ty = INT; }
         else {
-            if (d[Class] == Loc) { *++e = LEA; *++e = loc - d[Val]; }            //局部变量
-            else if (d[Class] == Glo) { *++e = IMM; *++e = d[Val]; }             //全局变量
+            if (d[Class] == Loc) { *++e = LEA; *++e = loc - d[Val]; }                    //局部变量
+            else if (d[Class] == Glo) { *++e = IMM; *++e = d[Val]; }                     //全局变量
             else { printf("%d: undefined variable\n", line); exit(-1); }
-            *++e = ((ty = d[Type]) == CHAR) ? LC : LI;                           //设置变量对应的加载方式
+            *++e = ((ty = d[Type]) == CHAR) ? LC : LI;                                   //设置变量对应的加载方式
         }
     }
     else if (tk == '(') {
@@ -410,10 +412,10 @@ int main(int argc, char **argv) {
     if ((fd = open(*argv, 0)) < 0) { printf("could not open(%s)\n", *argv); return -1; }
 
     poolsz = 256*1024; //编译器内存 
-    if (!(sym = malloc(poolsz))) { printf("could not malloc(%d) symbol area\n", poolsz); return -1; }
-    if (!(le = e = malloc(poolsz))) { printf("could not malloc(%d) text area\n", poolsz); return -1; }
-    if (!(data = malloc(poolsz))) { printf("could not malloc(%d) data area\n", poolsz); return -1; }
-    if (!(sp = malloc(poolsz))) { printf("could not malloc(%d) stack area\n", poolsz); return -1; }
+    if (!(sym    = malloc(poolsz))) { printf("could not malloc(%d) symbol area\n", poolsz); return -1; }
+    if (!(le = e = malloc(poolsz))) { printf("could not malloc(%d) text   area\n", poolsz); return -1; }
+    if (!(data   = malloc(poolsz))) { printf("could not malloc(%d) data   area\n", poolsz); return -1; }
+    if (!(sp     = malloc(poolsz))) { printf("could not malloc(%d) stack  area\n", poolsz); return -1; }
 
     memset(sym,  0, poolsz);
     memset(e,    0, poolsz);
@@ -423,7 +425,7 @@ int main(int argc, char **argv) {
     p = "char else enum if int return sizeof while "
         "open read close printf malloc free memset memcmp exit void main";
     i = Char; while (i <= While) { next(); id[Tk] = i++; } // 添加关键字到符号表
-    i = OPEN; while (i <= EXIT) { next(); id[Class] = Sys; id[Type] = INT; id[Val] = i++; } // 添加库到符号表
+    i = OPEN; while (i <=  EXIT) { next(); id[Class] = Sys; id[Type] = INT; id[Val] = i++; } // 添加系统函数到符号表
     next(); id[Tk] = Char; // void 类型指针
     next(); idmain = id; // 保存程序入口
 
@@ -437,15 +439,16 @@ int main(int argc, char **argv) {
     line = 1;
     next();
     //printf("\n--%d--%s--\n", tk, tk);
-    while (tk) {
+    //解析全局变量
+    while(tk) {
         printf("--%c--\n", tk);
         bt = INT; // 基础类型
-        if (tk == Int) next();
-        else if (tk == Char) { next(); bt = CHAR; }
-        else if (tk == Enum) {
+        if(tk == Int) next();
+        else if(tk == Char) { next(); bt = CHAR; }
+        else if(tk == Enum) {
             next();
-            if (tk != '{') next();
-            if (tk == '{') {
+            if(tk != '{') next();
+            if(tk == '{') {
                 next();
                 i = 0;
                 while (tk != '}') {
@@ -463,14 +466,15 @@ int main(int argc, char **argv) {
                 next();
             }
         }
-        while (tk != ';' && tk != '}') {
+        while(tk != ';' && tk != '}') {
             ty = bt;
             while (tk == Mul) { next(); ty = ty + PTR; }
-            if (tk != Id) { printf("%d: bad global declaration\n", line); return -1; }
-            if (id[Class]) { printf("%d: duplicate global definition\n", line); return -1; }
+            if(tk != Id) { printf("%d: bad global declaration\n", line); return -1; }
+            if(id[Class]) { printf("%d: duplicate global definition\n", line); return -1; }
             next();
             id[Type] = ty;
-            if (tk == '(') { // 函数
+            //在此之前定义的变量都是全局变量
+            if(tk == '(') { // id后紧跟(是函数定义
                 id[Class] = Fun;
                 id[Val] = (int)(e + 1);        //定义函数的入口地址，这里也是e段的起始地址，main函数的入口地址
                 next(); i = 0;
@@ -487,7 +491,7 @@ int main(int argc, char **argv) {
                     id[HType]  = id[Type];  id[Type] = ty;
                     id[HVal]   = id[Val];   id[Val] = i++;
                     next();
-                    if (tk == ',') next();
+                    if(tk == ',') next();
                 }
                 next();
                 //函数体
@@ -508,15 +512,15 @@ int main(int argc, char **argv) {
                         id[HType]  = id[Type];  id[Type] = ty;
                         id[HVal]   = id[Val];   id[Val] = ++i;
                         next();
-                        if (tk == ',') next();
+                        if(tk == ',') next();
                     }
                     next();
                 }
-                *++e = ENT; *++e = i - loc;         // 设置进入函数指令，i-loc为函数范围，可以理解为多小个CPU指令
-                while (tk != '}') stmt();           // 真正的函数体: if/else/while/return/{/}/;/表达式
-                *++e = LEV;                         // 离开函数
+                *++e = ENT; *++e = i - loc;        // 设置进入函数指令，i-loc为函数范围，可以理解为多小个CPU指令
+                while(tk != '}') stmt();           // 真正的函数体: if/else/while/return/{/}/;/表达式
+                *++e = LEV;                        // 离开函数
                 id = sym;
-                // 取消局部变量声明, 函数处理完毕，将全局变量恢复
+                // 取消局部变量声明, 函数处理完毕, 将全局变量恢复
                 while (id[Tk]) {
                     if (id[Class] == Loc) {
                         id[Class] = id[HClass];
@@ -527,22 +531,24 @@ int main(int argc, char **argv) {
                 }
             }
             else {
+                //全局变量
                 id[Class] = Glo;
                 id[Val] = (int)data;
                 data = data + sizeof(int);
             }
-            if (tk == ',') next();
+            if(tk == ',') next();
         }
         next();
     }
-    int *start;
-    start = lsym;
-    for(i = 0; i < 100; i++) {
-        printf("0[%s]-1[%d]-2[%s]-3[%s]-4[%d]-5[%s]-6[%s]-7[%s]-8[%p]-9[%d]\n", tkToStr(*(start+0)), *(start+1), (char *)(*(start+2)), tkToStr(*(start+3)), tyToStr(*(start+4)), start+5, tkToStr(*(start+6)), tyToStr(*(start+7)), start+8, *(start+9));
-        start = start + 9;
-    }
-    return 0;
+    //int *start;
+    //start = lsym;
+    //for(i = 0; i < 100; i++) {
+    //    printf("0[%s]-1[%d]-2[%s]-3[%s]-4[%d]-5[%s]-6[%s]-7[%s]-8[%p]-9[%d]\n", tkToStr(*(start+0)), *(start+1), (char *)(*(start+2)), tkToStr(*(start+3)), tyToStr(*(start+4)), start+5, tkToStr(*(start+6)), tyToStr(*(start+7)), start+8, *(start+9));
+    //    start = start + 9;
+    //}
+    //return 0;
 
+    //将 pc 指向 text段的 main函数的入口地址, 即 *e 指向的内存段
     if (!(pc = (int *)idmain[Val])) { printf("main() not defined\n"); return -1; }
     if (src) return 0;
 
@@ -556,40 +562,40 @@ int main(int argc, char **argv) {
 
     // 执行汇编代码
     cycle = 0;
-    while (1) {
+    while(1) {
         i = *pc++;
         ++cycle;         //CPU的指令周期，每循环一次，代表一条指令
-        if (debug) {
+        if(debug) {
             printf("%d> %.4s", cycle,
               &"LEA ,IMM ,JMP ,JSR ,BZ  ,BNZ ,ENT ,ADJ ,LEV ,LI  ,LC  ,SI  ,SC  ,PSH ,"
                "OR  ,XOR ,AND ,EQ  ,NE  ,LT  ,GT  ,LE  ,GE  ,SHL ,SHR ,ADD ,SUB ,MUL ,DIV ,MOD ,"
                "OPEN,READ,CLOS,PRTF,MALC,FREE,MSET,MCMP,EXIT,"[i * 5]);
-            if (i <= ADJ) printf(" %d\n", *pc); else printf("\n");
+            if(i <= ADJ) printf(" %d\n", *pc); else printf("\n");
         }
         if      (i == LEA) a = (int)(bp + *pc++);                             // 加载局部变量
         else if (i == IMM) a = *pc++;                                         // 加载全局变量或立即数
         else if (i == JMP) pc = (int *)*pc;                                   // 跳转
         else if (i == JSR) { *--sp = (int)(pc + 1); pc = (int *)*pc; }        // 跳转到子程序
-        else if (i == BZ)  pc = a ? pc + 1 : (int *)*pc;                      // 为零分支
+        else if (i ==  BZ) pc = a ? pc + 1 : (int *)*pc;                      // 为零分支
         else if (i == BNZ) pc = a ? (int *)*pc : pc + 1;                      // 非零分支
         else if (i == ENT) { *--sp = (int)bp; bp = sp; sp = sp - *pc++; }     // 进入子程序
-        else if (i == ADJ) sp = sp + *pc++;                                   // 在将调用子函数时压入栈中的数据清除
+        else if (i == ADJ) sp = sp + *pc++;                                   // 马上进入子函数，设置堆栈，将栈顶指针加上子函数的长度
         else if (i == LEV) { sp = bp; bp = (int *)*sp++; pc = (int *)*sp++; } // 离开子程序
-        else if (i == LI)  a = *(int *)a;                                     // 加载整数
-        else if (i == LC)  a = *(char *)a;                                    // 加载字符
-        else if (i == SI)  *(int *)*sp++ = a;                                 // 存储整数
-        else if (i == SC)  a = *(char *)*sp++ = a;                            // 存储字符
+        else if (i ==  LI) a = *(int *)a;                                     // 加载整数
+        else if (i ==  LC) a = *(char *)a;                                    // 加载字符
+        else if (i ==  SI) *(int *)*sp++ = a;                                 // 存储整数
+        else if (i ==  SC) a = *(char *)*sp++ = a;                            // 存储字符
         else if (i == PSH) *--sp = a;                                         // 压栈
 
-        else if (i == OR)  a = *sp++ |  a;
+        else if (i ==  OR) a = *sp++ |  a;
         else if (i == XOR) a = *sp++ ^  a;
         else if (i == AND) a = *sp++ &  a;
-        else if (i == EQ)  a = *sp++ == a;
-        else if (i == NE)  a = *sp++ != a;
-        else if (i == LT)  a = *sp++ <  a;
-        else if (i == GT)  a = *sp++ >  a;
-        else if (i == LE)  a = *sp++ <= a;
-        else if (i == GE)  a = *sp++ >= a;
+        else if (i ==  EQ) a = *sp++ == a;
+        else if (i ==  NE) a = *sp++ != a;
+        else if (i ==  LT) a = *sp++ <  a;
+        else if (i ==  GT) a = *sp++ >  a;
+        else if (i ==  LE) a = *sp++ <= a;
+        else if (i ==  GE) a = *sp++ >= a;
         else if (i == SHL) a = *sp++ << a;
         else if (i == SHR) a = *sp++ >> a;
         else if (i == ADD) a = *sp++ +  a;
