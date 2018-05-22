@@ -230,7 +230,7 @@ void expr(int lev) {
             else if (d[Class] == Fun) { *++e = JSR; *++e = d[Val]; }                     //自定义函数，d[Val] 的值就是函数对应的汇编码 即
             else { printf("%d: bad function call\n", line); exit(-1); }                  //非函数调用
             if (t) { *++e = ADJ; *++e = t; }                                             //在 text段 中设置ADJ指令，用于子函数的堆栈，ADJ后跟的参数是指令的长度，也是堆栈的长度
-            ty = d[Type];                                                                //将id的数据类型赋值给ty
+            ty = d[Type];                                                                //将id的数据类型, 即函数返回值的类型，赋值给ty
         }
         else if (d[Class] == Num) { *++e = IMM; *++e = d[Val]; ty = INT; }
         else {
