@@ -427,7 +427,7 @@ int main(int argc, char **argv) {
     i = Char; while (i <= While) { next(); id[Tk] = i++; } // 添加关键字到符号表
     i = OPEN; while (i <=  EXIT) { next(); id[Class] = Sys; id[Type] = INT; id[Val] = i++; } // 添加系统函数到符号表
     next(); id[Tk] = Char; // void 类型指针
-    next(); idmain = id; // 保存程序入口
+    next(); idmain = id;   // 保存程序入口
 
     if (!(lp = p = malloc(poolsz))) { printf("could not malloc(%d) source area\n", poolsz); return -1; }
     if ((i = read(fd, p, poolsz-1)) <= 0) { printf("read() returned %d\n", i); return -1; }
