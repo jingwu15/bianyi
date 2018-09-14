@@ -1,4 +1,3 @@
-
 .text
 
 .globl _start

@@ -11,8 +11,12 @@ v1:
 	@./bin/b_v1
 
 wc:
-	@gcc wc.c -o ./bin/wchar
+	@gcc wchar.c -o ./bin/wchar
 	@./wchar
+
+机编:
+	@gcc 机编.c include/func_jibian.c -o ./bin/机编
+	@./bin/机编
 
 clean:
 	@rm -rf ./*.bin ./bin/* *.out
