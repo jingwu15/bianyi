@@ -4,6 +4,12 @@
 用的是 exynos4412/itop4412 板子，基于 ARM Cortex -A9 处理器，用的是 ARMv7-A1 指令集
 ARM 文档：http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.home/index.html
 ARM 体系结构 -> Reference Manuals -> ARMv7-AR Reference Manual -> ARM® Architecture Reference Manual ARMv7-A and ARMv7-R edition
+
+
+https://blog.csdn.net/baidu_37973494/article/details/82796800
+https://www.cnblogs.com/getyoulove/p/3675748.html
+https://blog.csdn.net/sunnylgz/article/details/8049116
+https://blog.csdn.net/u010245383/article/details/25919757
 ```
 
 
@@ -103,3 +109,29 @@ dis 文件中指令码: 40008000:   e3a0 1064    mov r1, #100    ; 0x64
 代码-0    演示对比汇编指令与二进制码指令
 代码-1    演示最基本的蜂鸣器
 ```
+
+
+### 机器码每个位的意义
+```
+P
+W
+U
+Rt
+Rd
+op1
+op
+Rn
+```
+
+
+
+
+
+
+
+### 汇编器
+```
+1. 将所有的伪指令处理为真正的指令
+2. 转换指令为机器码
+```
+

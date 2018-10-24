@@ -7,8 +7,8 @@
 #include <wchar.h>
 #include <locale.h>
 
-int codeSize = 1024 * 256, val;
-char *daima, *daimaShi, *opcode, *opcodeShi;
+int codeSize = 1024 * 256, val, opcode[10000], *opcodeShi;
+char *daima, *daimaShi;
 
 
 //ID
@@ -46,8 +46,8 @@ int matchId(char raw) {
     }
 }
 
-int matchCmd(char raw) {
-    if((raw >= 'a' && raw <= 'z') || (raw >= 'A' && raw <= 'Z')) {
+int matchWord(char raw) {
+    if((raw >= 'a' && raw <= 'z') || (raw >= 'A' && raw <= 'Z') || (raw >= '0' && raw <= '9')) {
         return 1;
     } else {
         return 0;
@@ -121,20 +121,21 @@ int str2Int(char *p, int from, int to) {
 
 //字符串对对
 int strEq(char *raw0, char *raw1) {
+    //printf("strEq--%p-%c----%p-%c----\n", raw0, *raw0, raw1, *raw1);
+    int flag = 1;
     while(1) {
+        //printf("strEq--c--%c-%d----%c-%d\n", *raw0, *raw0, *raw1, *raw1);
+        if(*raw1 == '\0') break;
         if(*raw0 && *raw1) {
-            if(*raw0 != *raw1) return 0;
-            raw0++;
-            raw1++;
-        } else if(*raw0 && !*raw1) {
-            return 0;
-        } else if(!*raw0 && *raw1) {
-            return 0;
-        } else {
-            break;
+            if(*raw0 != *raw1) { flag = 0; break; }
+            raw0++; raw1++; continue;
         }
+        if(*raw0 && !*raw1) { flag = 0; break; }
+        if(!*raw0 && *raw1) { flag = 0; break; }
     }
-    return 1;
+    //printf("flag----%d\n", flag);
+    //printf("%s----\n", raw0);
+    return flag;
 }
 
 int strCopy(char *raw, char *dest, int length) {
@@ -147,72 +148,95 @@ int strCopy(char *raw, char *dest, int length) {
 }
 
 int getToken() {
-    int start, length, token;
-    while(token = *daima) {
-        daima++;
+    char *start;
+    int length, token;
+    while(1) {
+        if(*daima == '\0') return 0;
+        token = *daima;
+        //printf("while---%c\n", *daima);
         if(*daima == '\r' || *daima == '\n') {
             daima++;
-            continue;
-        } else if (*daima == ' ') {
+        } else if(*daima == ' ') {
             daima++;
-            continue;
-        } else if (*daima == ',') {
+        } else if(*daima == ',') {
             token = *daima;
+            daima++;
             return token;
-        } else if (*daima == '=') {
-            return EQ;
-        } else if (*daima == '[') {
+        } else if(*daima == '=') {
+            token = EQ;
+            daima++;
+            return token;
+        } else if(*daima == '[') {
             token = *daima;
+            daima++;
             return token;
-        } else if (matchZimu(*daima)) {
-            start = (int)daima - 1;
-            while(matchCmd(*daima)) {
-                daima++;
-            }
-            length = (int)daima - start;
-            if(strEq((char *)start, "ldr") == 0) {
+        } else if(*daima == ']') {
+            token = *daima;
+            daima++;
+            return token;
+        } else if(matchZimu(*daima)) {
+            start = daima;
+            while(matchWord(*daima)) daima++;
+            //length = daima - start;
+            if(strEq(start, "ldr") == 1) {
                 //printf("cmd: ldr\n");
+                //printf("start: \n", *(char *)start);
                 return LDR;
-            } else if(strEq((char *)start, "bic") == 0) {
-                //printf("cmd: bic\n");
+            } else if(strEq(start, "bic") == 1) {
+                //printf("cmd: bic------start  %s\n", start);
+                //exit(-1);
                 return BIC;
-            } else if(strEq((char *)start, "orr") == 0) {
-                //printf("cmd: orr\n");
+            } else if(strEq(start, "orr") == 1) {
                 return ORR;
-            } else if(strEq((char *)start, "str") == 0) {
-                //printf("cmd: str\n");
+            } else if(strEq(start, "str") == 1) {
                 return STR;
-            } else if(strEq((char *)start, "r0") == 0) {
+            } else if(strEq(start, "r0") == 1) {
+                //printf("reg: r0\n");
                 return R0;
-            } else if(strEq((char *)start, "r1") == 0) {
+            } else if(strEq(start, "r1") == 1) {
+                //printf("reg: r1\n");
                 return R1;
             } else {
                 printf("cmd: other\n");
                 exit(-1);
             }
-            continue;
-        } else if (matchShu(*daima)) {
-            if(*(daima+1) == 'x' || *(daima+1) == 'x' ) {
+        } else if(*daima == '#') {
+            daima++;
+            if(*daima == '0') {
                 daima++;
-                //16进制
-                val = 111;
-                printf("16进制\n");
-                //str2Int(, 16, 10);
-            } else {
-                //8进制
-                val = 111;
-                printf("8进制\n");
-                //str2Int(, 8, 10);
+                if(*daima == 'x' || *daima == 'X') {    //16进制
+                    daima++;
+                    while((*daima >= '0' && *daima <= '9') || (*daima >= 'a' && *daima <= 'f') || (*daima >= 'A' && *daima <= 'F')) { val = val * 16 + cNumMap(*daima); daima++; }
+                } else {                    //8进制
+                    while(*daima >= '0' && *daima <= '7') { val = val * 8 + cNumMap(*daima); daima++; }
+                }
+            } else {                        //10进制
+                while(*daima >= '0' && *daima <= '9') { val = val * 10 + cNumMap(*daima); daima++; }
             }
+            daima++;
             return NUM;
-        } else if (*daima == '@') {
-            while(*daima != '\r' || *daima != '\n') {
+        } else if(matchShu(*daima)) {
+            if(*daima == '0') {
                 daima++;
-                continue;
+                if(*daima == 'x' || *daima == 'X') {    //16进制
+                    daima++;
+                    while((*daima >= '0' && *daima <= '9') || (*daima >= 'a' && *daima <= 'f') || (*daima >= 'A' && *daima <= 'F')) { val = val * 16 + cNumMap(*daima); daima++; }
+                } else {                    //8进制
+                    while(*daima >= '0' && *daima <= '7') { val = val * 8 + cNumMap(*daima); daima++; }
+                }
+            } else {                        //10进制
+                while(*daima >= '0' && *daima <= '9') { val = val * 10 + cNumMap(*daima); daima++; }
             }
-            continue;
+            daima++;
+            return NUM;
+        } else if(*daima == '@') {
+            //printf("%s\n", daima);
+            //while(*daima != '\r' && *daima != '\n') { daima++; printf("while--@--%c--\n", *daima); }
+            while(*daima != '\r' && *daima != '\n') daima++; 
+            //printf("@@@@@ \n");
+            //printf("%d\n", daima);
         } else {
-            printf("取 token 错误! %c", *daima);
+            printf("取 token 错误! %d\n", *daima);
             exit(-1);
         }
     }
@@ -220,50 +244,104 @@ int getToken() {
 }
 
 void cmdLdr() {
-    //ldr r1,=0x114000A0        @准备地址
-    //ldr r0,[r1]               @读取片上外设寄存器数据 到cpu通用寄存器
-    int reg = getToken();
-    int separator = getToken();
-    printf("cmdLdr--start--%d-%d\n", reg, separator);
+    int regDest, regOp, separator, end, valType;
+    regDest   = getToken();
+    separator = getToken();
+    //printf("cmdLdr--start--%d-%d\n", regDest, separator);
     if(separator == ',') {
-        int valType = getToken();
+        valType = getToken();
         if(valType == EQ) {
             //伪指令: ldr r1,=0x114000A0        @准备地址
-            //*opcode = '';
-            printf("EQ======\n");
             valType = getToken();
             if(valType != NUM) {
-                printf("LDR 指令错误, 需要数字\n");
+                printf("LDR 指令错误, ldr r1,=imm 需要数字\n");
             }
-            printf("LDR: %d\n", val);
-            printf("伪指令: ldr r1,=0x114000A0 ----ldr r1, %d\n", valType);
-        //} else if(valType == EQ_VAR) {
-            //*opcode = '';
+            *opcode = ;
+            printf("LDR: r1,=imm---------%d\n", val);
+        } else if(valType == '[') {
+            regOp = getToken();
+            end  = getToken();
+            printf("LDR: ldr r0,[r1]------%d----%d\n", regOp, val);
         } else {
             //异常, 格式错误
         }
     } else {
             //异常, 格式错误
     }
-    printf("cmdLdr--end--%d-%d\n", reg, separator);
+    //printf("cmdLdr--end--%d-%d\n", regDest, separator);
 }
 
 void cmdBic() {
-    printf("cmdBic--start\n");
+    int regDest, regOp, separator, end, valType;
+    regDest   = getToken();
+    separator = getToken();
+    //printf("cmdBic--start--%d-%d\n", regDest, separator);
+    if(separator == ',') {
+        //bic r0,r0,#0xf
+        regOp = getToken();
+        separator = getToken();
+        if(separator == ',') {
+            end = getToken();
+            printf("BIC: bic r0,r0,#imm----%d----%d\n", regOp, end);
+        } else {
+            printf("BIC: bic r0,r0,#imm----#immerror\n");
+        }
+    } else {
+        //异常, 格式错误
+        printf("BIC: bic r0,r0,#imm----,format,error\n");
+    }
+    //printf("cmdBic--end--%d-%d\n", regDest, separator);
 }
 
 void cmdOrr() {
-    printf("cmdOrr--start\n");
+    int regDest, regOp, separator, end, valType;
+    regDest   = getToken();
+    separator = getToken();
+    //printf("cmdORR--start--%d-%d\n", regDest, separator);
+    if(separator == ',') {
+        //orr r0,r0,#0x2
+        regOp = getToken();
+        separator = getToken();
+        if(separator == ',') {
+            end = getToken();
+            printf("ORR: orr r0,r0,#imm----%d----%d\n", regOp, end);
+        } else {
+            printf("ORR: orr r0,r0,#imm----#immerror\n");
+        }
+    } else {
+        //异常, 格式错误
+        printf("ORR: orr r0,r0,#imm----,format,error\n");
+    }
+    //printf("cmdORR--end--%d-%d\n", regDest, separator);
 }
 
 void cmdStr() {
-    printf("cmdStr--start\n");
+    int regDest, regOp, separator, end, valType;
+    regDest   = getToken();
+    separator = getToken();
+    //printf("cmdStr--start--%d-%d\n", regDest, separator);
+    if(separator == ',') {
+        valType = getToken();
+        if(valType == '[') {
+            //str r0,[r1]
+            regOp = getToken();
+            end  = getToken();
+            printf("STR: str r0,[r1]------%d----%c\n", regOp, end);
+        } else {
+            //异常, 格式错误
+        }
+    } else {
+        //异常, 格式错误
+    }
+    //printf("cmdStr--end--%d-%d\n", regDest, separator);
 }
 
 void jiexiCode() {
-    int token;
+    int token, i=0;
     while(1) {
+        //printf("jiexiCode: %d\n", i++);
         token = getToken();
+        //printf("cmd-token---%d\n", token);
         if(token == LDR) {
             cmdLdr();
         } else if(token == BIC) {
@@ -272,9 +350,13 @@ void jiexiCode() {
             cmdOrr();
         } else if(token == STR) {
             cmdStr();
+        } else if(token == 0) {
+            break;
         } else {
+            printf("其他命令: %d\n", token);
         }
     }
+    printf("解析完成!\n");
 }
 
 int main(int argc, char * argv) {
